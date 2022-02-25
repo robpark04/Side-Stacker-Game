@@ -1,0 +1,354 @@
+<html>
+<head>
+    <style>
+        * {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        }
+
+        header{
+            line-height: 3vh;
+            min-height: 3vh;
+            font-size: 2vh;
+            padding-top: .5vh;
+            padding-bottom: .5vh;
+            width: 100%;
+            transition: all .3s ease-in-out 0s;
+            text-align: center;
+            font-family: Roboto;
+            color: white;
+            background: rgb(50, 50, 50);
+        }
+
+        body {
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        #myname {
+            color: rgb(70, 70, 70);
+            font-size: 4vh;
+            margin-top: 3vh;
+            margin-bottom: 3vh;
+            cursor: text;
+            outline: none;
+            display: block;
+            transition: all .2s ease-in-out 0s;
+            border-bottom: 2px solid transparent;
+            border-bottom-width: 30%;
+        }
+
+        table {
+            width: 100%;
+            height: 73vh;
+            border-collapse: collapse;
+            transition: all .3s ease-in-out 0s;
+        }
+
+        td {
+            cursor: pointer;
+            background: rgb(245, 245, 245);
+            transition: all .25s ease-in-out 0s;
+            border: 2px solid transparent;
+        }
+
+        input[type='text'], h1 {
+            text-align: center;
+            font-family: Roboto;
+            letter-spacing: 1px;
+            font-size: 1.8em;
+            transition: opacity .25s ease-in-out 0s;
+            font-weight: 100;
+            cursor: default;
+            margin-left: auto;
+            margin-right: auto;
+            border: none;
+        }
+
+        #info {
+            left: 0;
+            background: rgb(50, 50, 50);
+            opacity: 0;
+            width: 100%;
+            font-size: 5vh;
+            top: 50vh;
+            transform: translateY(-50%);
+            color: white;
+            padding-top: 2.5vh;
+            padding-bottom: 2.5vh;
+            position: absolute;
+            display: none;
+            letter-spacing: 1px;
+            transition: all .25s ease-in-out 0s;
+        }
+
+        button {
+            padding-top: 1.5vh;
+            padding-bottom: 1.5vh;
+            padding-left: 3%;
+            padding-right: 3%;
+            cursor: pointer;
+            outline: none;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 3vh;
+            display: block;
+            background: #EEEEEE;
+            border-radius: 2vh;
+            color: rgb(50, 50, 50);
+            font-family: Roboto;
+            font-size: 3vh;
+            border: none;
+            transition: all .1s ease-in-out 0s;
+            box-shadow: 0px 0px 25px 0px rgba(176,176,176,0.19);
+        }
+
+        button:active{
+            box-shadow: 0px 0px 0px 0px rgba(176,176,176,0.19);
+            transform: scale(.95);
+        }
+
+        .cellBlue {
+            background: #29D2E4;
+        }
+
+        .cellRed {
+            background: #F73859;
+        }
+
+        .cellBlueHover {
+            background: rgba(41, 210, 228, .15);
+        }
+
+        .cellRedHover {
+            background: rgba(247, 56, 89, .15);
+        }
+
+        .cellError{
+            border-color: red;
+        }
+
+        .animate {
+            transform: scale(1.05);
+        }
+
+        .noselect {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        ::selection {
+            background: rgb(50, 50, 50);
+            color: white;
+        }
+        ::-moz-selection {
+            background: rgb(50, 50, 50);
+            color: white;
+        }
+    </style>
+
+    <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+    <script type="text/javascript">
+        var socket = io.connect('http://localhost:3000');
+        var Cases = [];
+        var End = false;
+
+        socket.on('go', function (data) {
+            CancelMessage();
+            document.getElementById('colorPlay').textContent = data.Name;
+            document.getElementById('grid').style.borderCollapse = 'separate';
+            document.getElementById('play').innerHTML = 'Restart';
+            document.getElementById('play').style.opacity = '';
+            document.getElementById('colorPlay').className = 'cellRed';
+            document.getElementById('myname').style.borderBottomColor = data.ID == 1 ? '#F73859' : '#29D2E4';
+
+            Cases.forEach(function(_case){
+                _case.Clicker = 0;
+                _case.Element.style.borderRadius = '3px';
+            });
+        });
+
+        socket.on('getClick', function (data) {
+            var _case = CaseXY(data.X, data.Y);
+            _case.Element.className = data.Clicker == 1 ? 'cellRed' : 'cellBlue';
+            document.getElementById('colorPlay').className = data.Clicker == 1 ? 'cellBlue' : 'cellRed';
+
+            _case.Element.Clicker = data.Clicker;
+            _case.Element.classList.add('animate');
+
+            setTimeout(function () {
+                _case.Element.classList.remove('animate');
+            }, 200);
+        });
+
+        socket.on('errorClick', function (data) {
+            var _case = CaseXY(data.X, data.Y).Element;
+            _case.classList.add('cellError');
+            setTimeout(function(){
+                _case.classList.remove('cellError');
+            }, 200);
+        });
+
+        socket.on('win', function(data) {
+            if(data !== 0){
+                Message('You ' + data.Status);
+                var CasesWin = [];
+                data.CasesWin.forEach(function(_caseWin) { CasesWin.push(CaseXY(_caseWin.X, _caseWin.Y)); });
+
+                Cases.forEach(function(_case){
+                    if(CasesWin.indexOf(_case) < 0 && _case.Element.Clicker > 0 && !End)
+                        _case.Element.style.opacity = .2;
+                });
+            } else {
+                Message('Equality');
+                Cases.forEach(function(_case){
+                    _case.Element.style.opacity = .2;
+                });
+            }
+            End = true;
+        });
+
+        socket.on('getUnHover', function(data) {
+            CaseXY(data.X, data.Y).Element.className = '';
+        });
+
+        socket.on('getHover', function(data) {
+            CaseXY(data.Case.X, data.Case.Y).Element.className = data.Clicker == 1 ? 'cellRedHover' : 'cellBlueHover';
+        });
+
+        socket.on('wait', function() {
+            Message('Waiting for a player...');
+            document.getElementById('play').style.opacity = .5;
+        });
+
+        socket.on('yourName', function(data) {
+            document.getElementById('colorPlay').textContent = data;
+        });
+
+        socket.on('leave', function(){
+            Message('Your opponent leave the game');
+            Cases.forEach(function(_case) {
+                if(_case.Element.Clicker > 0)
+                    _case.Element.style.opacity = .2;
+            });
+        });
+
+        function Initialize() {
+            var grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            for (var r = 0; r < 7; ++r) {
+                var tr = grid.appendChild(document.createElement('tr'));
+                for (var c = 0; c < 7; ++c) {
+                    var _case = new Case(c, r, 0);
+                    _case.Create(tr);
+                    Cases.push(_case);
+                }
+            }
+        }
+
+        function Play(){
+            socket.emit('disconnectPlayer');
+            Cases.forEach(function(_case){
+                _case.Element.Clicker = 0;
+                _case.Element.style.borderRadius = '';
+                _case.Element.className = '';
+                _case.Element.style.opacity = '';
+            });
+            document.getElementById('colorPlay').textContent = 'Four';
+            document.getElementById('myname').style.borderBottomColor = '';
+            document.getElementById('colorPlay').className = '';
+            document.getElementById('grid').style.borderCollapse = '';
+            End = false;
+            socket.emit('search', document.getElementById('myname').value);
+        }
+
+        function Case(X, Y, Clicker) {
+            this.Element = document.createElement('td');
+            this.Element.Clicker = Clicker;
+            this.Element.X = X;
+            this.Element.Y = Y;
+
+            this.Create = function (i) {
+                this.Element.onmouseover = function (e){
+                    socket.emit('hover', e.target);
+                }
+
+                this.Element.onmouseout = function (e){
+                    socket.emit('unhover', e.target);
+                }
+
+                this.Element.onclick = function (e) {
+                    socket.emit('click', e.target);
+                };
+
+                i.appendChild(this.Element);
+            }
+        }
+
+        function CaseXY(x, y) {
+            for (var i = 0; i < Cases.length; i++) {
+                if (Cases[i].Element.X == x && Cases[i].Element.Y == y) {
+                    return Cases[i];
+                }
+            }
+            return new Case(0, 0, -1);
+        }
+
+        function Message(msg) {
+            var info = document.getElementById('info');
+            info.innerHTML = msg;
+            info.style.display = "block";
+            setTimeout(function() {
+                info.style.opacity = .8;
+            }, 1);
+        }
+
+        function CancelMessage() {
+            var info = document.getElementById('info');
+            info.style.opacity = 0;
+            setTimeout(function () {
+                info.style.display = "none";
+            }, 300);
+        }
+
+        function NameUpdate(){
+            socket.emit('nameUpdate', document.getElementById('myname').value);
+        }
+    </script>
+
+    <title>Four</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="57x57" href="favicons/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="favicons/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="favicons/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="favicons/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="favicons/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="favicons/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="favicons/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="favicons/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="favicons/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192"  href="favicons/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicons/favicon-16x16.png">
+    <link rel="manifest" href="favicons/manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="favicons/ms-icon-144x144.png">
+    <meta name="theme-color" content="#ffffff">
+</head>
+
+<body onload="Initialize(); Message('Press on the play button')">
+    <div class="noselect">
+        <header id="colorPlay">Four</header>
+        <input type="text" maxlength="15" id="myname" value="player" onchange="NameUpdate()" onkeydown="NameUpdate()" onkeypress="NameUpdate()" onpaste="NameUpdate()" oninput="NameUpdate()"/>
+        <table id="grid"></table>
+        <h1 id="info"></h1>
+        <button onclick="Play()" id="play">Play</button>
+    </div>
+</body>
+</html>
